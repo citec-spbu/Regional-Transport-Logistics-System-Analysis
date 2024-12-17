@@ -4,37 +4,50 @@
     <meta charset="UTF-8">
     <title>Routes in the location</title>
     {{map.header.render|safe}}
+    <style>
+      body { margin:0; padding:0; }
+      #toolbar {width: 240px; padding-top: 10px;padding-left: 10px;}
+      #map { position: absolute; top:0; bottom:0; right:0; left: 250px;; }
+    </style>
+
 </head>
 <body>
-    <button id="backButton">В начало</button>
-    <form></form>
-    <fieldset>
-      <legend id="currentMetrics">Учитываемая метрика</legend>
-      <div>
-        <input type="radio" name="metrics" id="noMetrics" value="noMetrics" checked></input>
-        <label for="noMetrics">Без Метрик</label>
-      </div>
-      <div>
-        <input type="radio" name="metrics" id="degree" value="degree"></input>
-        <label for="degree">Degree Centrality</label>
-      </div>
-      <div>
-        <input type="radio" name="metrics" id="closeness" value="closeness"></input>
-        <label for="closeness">Closeness Centrality</label>
-      </div>
-      <div>
-        <input type="radio" name="metrics" id="betweenness" value="betweenness"></input>
-        <label for="betweenness">Betweenness Centrality</label>
-      </div>
-      <div>
-        <input type="radio" name="metrics" id="pagerank" value="pagerank"></input>
-        <label for="pagerank">Page Rank</label>
-      </div>
-      <button id="rebuild">Построить</button>
-    </fieldset>
+  <div id="toolbar">
+    <div style="padding-bottom: 10px">
+      <button id="backButton">В начало</button>
+    </div>
+    <div style="padding-bottom: 10px">
+      <fieldset>
+        <legend id="currentMetrics">Учитываемая метрика</legend>
+        <div>
+          <input type="radio" name="metrics" id="noMetrics" value="noMetrics" checked></input>
+          <label for="noMetrics">Без Метрик</label>
+        </div>
+        <div>
+          <input type="radio" name="metrics" id="degree" value="degree"></input>
+          <label for="degree">Degree Centrality</label>
+        </div>
+        <div>
+          <input type="radio" name="metrics" id="closeness" value="closeness"></input>
+          <label for="closeness">Closeness Centrality</label>
+        </div>
+        <div>
+          <input type="radio" name="metrics" id="betweenness" value="betweenness"></input>
+          <label for="betweenness">Betweenness Centrality</label>
+        </div>
+        <div>
+          <input type="radio" name="metrics" id="pagerank" value="pagerank"></input>
+          <label for="pagerank">Page Rank</label>
+        </div>
+      </fieldset>
+    </div>   
+    <button id="rebuild">Построить</button>
+  </div>
+  <div id="map">
     {% if map %}
 
   	{{map.html.render|safe}}
+  </div>
     <script>
     	{{map.script.render|safe}}
       var currentMetrics = document.URL.substring(document.URL.indexOf("8000/")+5, document.URL.indexOf(","));

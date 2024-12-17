@@ -23,6 +23,6 @@ from route.views import showmap, showroutes
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('<str:metrics>,<str:lat1>,<str:long1>',showroutes,name='showroute'),
+    path('<str:metrics>,<str:lat1>,<str:long1>,<str:lat2>,<str:long2>',showroutes,name='showroute'),
     path('',showmap,name='showmap'),
     ]
