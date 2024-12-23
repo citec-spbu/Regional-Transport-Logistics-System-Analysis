@@ -25,7 +25,6 @@ tags_aeroway = {'aeroway' : ['aerodrome','heliport', 'airstrip']}
 tags_landuse = {'landuse' : 'railway'}
 tags_build = {'building' : 'warehouse', 'amenity' : 'mailroom'}
 
-
 ''' Построение датафрейма нужных фич '''
 def func_tags(m_tags, point_y, point_x):
 
@@ -33,13 +32,14 @@ def func_tags(m_tags, point_y, point_x):
         gdf = ox.features.features_from_bbox(bbox = (max(point_y), min(point_y), min(point_x), max(point_x)), tags = m_tags).reset_index()
         gdf = gdf[['element_type', 'osmid']]
         gdf['n_osmid'] = gdf['element_type'].apply(lambda x: x[0]) + gdf['osmid'].astype(str)
-
         list_lat_lon = []
         for i in range(gdf.n_osmid.shape[0]):
             try:
                 bb = ox.geocode_to_gdf(gdf.n_osmid.iloc[i], by_osmid=True)[['lat', 'lon']]
                 list_lat_lon.append(bb.iloc[:])
             except ox._errors.InsufficientResponseError:
+                list_lat_lon.append(pd.DataFrame({'lat': [None], 'lon': [None]}))
+            except KeyError:
                 list_lat_lon.append(pd.DataFrame({'lat': [None], 'lon': [None]}))
         dfs = pd.concat(list_lat_lon, axis=0).reset_index(drop=True)
         gdf = gdf.merge(dfs, on=dfs.index).drop('key_0', axis=1)
@@ -163,7 +163,7 @@ def create_final_graph(arb_graph, route_df, feature_df):
         rr = rr.set_index('osmid')
         rr['x'] = rr.new_nodes.apply(lambda x: arb_graph.nodes[x]['x'])
         rr['y'] = rr.new_nodes.apply(lambda x: arb_graph.nodes[x]['y'])
-        rr
+        rr = rr.drop_duplicates(subset=['new_nodes'])
 
         edge_dict = {'u': rr.new_nodes[:-1].values, 'v': rr.new_nodes[1:].values, 'key': 0}
         edge_gdf = gd.GeoDataFrame(edge_dict, crs=None)
@@ -178,7 +178,7 @@ def create_final_graph(arb_graph, route_df, feature_df):
     my_graph = list_graphs[0]
     for i in range(1, len(list_graphs)):
         my_graph = nx.compose_all([my_graph, list_graphs[i]])
-
+    
     nodes, edges = ox.graph_to_gdfs(my_graph)
     list_nodes = list(feature_df['new_nodes'].values)
     n = nodes[nodes['new_nodes'].isin(list_nodes)]
@@ -222,7 +222,6 @@ def result_aero(point_y, point_x):
     route_df = create_route_aero(graph_city[1], feature_df)
     final_graph_1_aero = create_final_graph(graph_city[1], route_df, feature_df)
     return final_graph_1_aero
-
 
 
 def showroutes(request, metrics, lat1, long1, lat2, long2):
