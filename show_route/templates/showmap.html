@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Map to find routes</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+
+  <!-- Load Leaflet from CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+    crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+    integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+    crossorigin=""></script>
+
+  <!-- Load Esri Leaflet from CDN -->
+  <script src="https://unpkg.com/esri-leaflet@2.5.0/dist/esri-leaflet.js"
+    integrity="sha512-ucw7Grpc+iEQZa711gcjgMBnmd9qju1CICsRaryvX7HJklK0pGl/prxKvtHwpgm5ZHdvAil7YPxI1oWPOWK3UQ=="
+    crossorigin=""></script>
+
+  <!-- Load Esri Leaflet Geocoder from CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/esri-leaflet-geocoder@2.3.3/dist/esri-leaflet-geocoder.css"
+    integrity="sha512-IM3Hs+feyi40yZhDH6kV8vQMg4Fh20s9OzInIIAc4nx7aMYMfo+IenRUekoYsHZqGkREUgx0VvlEsgm7nCDW9g=="
+    crossorigin="">
+  <script src="https://unpkg.com/esri-leaflet-geocoder@2.3.3/dist/esri-leaflet-geocoder.js"
+    integrity="sha512-HrFUyCEtIpxZloTgEKKMq4RFYhxjJkCiF5sDxuAokklOeZ68U2NPfh4MFtyIVWlsKtVbK5GD2/JzFyAfvT5ejA=="
+    crossorigin=""></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+  <style>
+    body { margin:0; padding:0; }
+    #toolbar {width: 240px; padding-top: 10px;padding-left: 10px;}
+    #map { position: absolute; top:0; bottom:0; right:0; left: 250px;; }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+</head>
+<body>
+<div id="toolbar">
+  <div style="padding-bottom: 10px; padding-right: 10px;">
+    <fieldset>
+      <legend id="TopRight">Первая точка</legend>
+      <div style="padding-bottom: 10px;">
+        <label>Широта </label>
+        <input id="latitude1" type="number"></input>
+      </div>
+      <div style="padding-bottom: 10px;">
+        <label>Долгота</label>
+        <input id="longitude1" type="number"></input>
+      </div>
+      <button id="deleteFirst">Удалить</button>
+      <button id="moveFirst">Отметить</button>
+    </fieldset>
+  </div>
+  <div style="padding-bottom: 10px; padding-right: 10px;">
+    <fieldset>
+      <legend id="BottomLeft">Вторая точка</legend>
+      <div style="padding-bottom: 10px;">
+        <label>Широта </label>
+        <input id="latitude2" type="number"></input>
+      </div>
+      <div style="padding-bottom: 10px;">
+        <label>Долгота</label>
+        <input id="longitude2" type="number"></input>
+      </div>
+      <button id="deleteSecond">Удалить</button>
+      <button id="moveSecond">Отметить</button>
+    </fieldset>
+  </div>
+  <div style="padding-bottom: 10px; padding-right: 10px;">
+    <fieldset>
+      <legend id="currentMetrics">Выбор метрики</legend>
+      <div>
+        <input type="radio" name="metrics" id="noMetrics" value="noMetrics" checked></input>
+        <label for="noMetrics">Без Метрик</label>
+      </div>
+      <div>
+        <input type="radio" name="metrics" id="degree" value="degree"></input>
+        <label for="degree">Degree Centrality</label>
+      </div>
+      <div>
+        <input type="radio" name="metrics" id="closeness" value="closeness"></input>
+        <label for="closeness">Closeness Centrality</label>
+      </div>
+      <div>
+        <input type="radio" name="metrics" id="betweenness" value="betweenness"></input>
+        <label for="betweenness">Betweenness Centrality</label>
+      </div>
+      <div>
+        <input type="radio" name="metrics" id="pagerank" value="pagerank"></input>
+        <label for="pagerank">Page Rank</label>
+      </div>
+    </fieldset>
+  </div>
+  <div style="padding-bottom: 10px;">
+    <button id="Build" >Построить маршруты</button>
+  </div>
+</div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+<script>
+  var map = L.map('map').setView([64,97], 4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+  var firstPoint;
+  var secondPoint;
+  var poly;
+
+  var geocoder = L.Control.geocoder({
+  defaultMarkGeocode: false
+  })
+  .on('markgeocode', function(e) {
+    var mark_name = e.geocode.name;
+    var coords = e.geocode.center;
+    //L.marker(coords).addTo(map).bindPopup(mark_name + "\n Загрузка маршрутов...").openPopup();
+    //const route_url='http://localhost:8000/'+ "nometrics," + coords.lat + ',' + coords.lng;
+    var bbox = e.geocode.bbox;
+    var first = bbox.getNorthWest();
+    var second = bbox.getSouthEast();
+    document.getElementById("latitude1").value=first.lat;
+    document.getElementById("latitude2").value=second.lat;
+
+    document.getElementById("longitude1").value=first.lng;
+    document.getElementById("longitude2").value=second.lng;
+    if(map.hasLayer(firstPoint)){
+      map.removeLayer(firstPoint);
+    }
+    if(map.hasLayer(secondPoint)){
+      map.removeLayer(secondPoint);
+    }
+    if(map.hasLayer(poly)){
+      map.removeLayer(poly);
+    }
+    firstPoint = L.marker(first).addTo(map).bindPopup(first.lat + ',' + first.lng).openPopup();
+    secondPoint = L.marker(second).addTo(map).bindPopup(second.lat + ',' + second.lng).openPopup();
+    poly = L.polygon([
+      bbox.getSouthEast(),
+      bbox.getNorthEast(),
+      bbox.getNorthWest(),
+      bbox.getSouthWest()
+    ]).addTo(map);
+    map.fitBounds(poly.getBounds());
+    //window.location.replace(route_url);
+  })
+  .addTo(map);
+
+  document.getElementById('deleteFirst').addEventListener('click', function(){
+    document.getElementById("latitude1").value=0;
+    document.getElementById("longitude1").value=0;
+    map.removeLayer(firstPoint);
+    map.removeLayer(poly);
+  });
+
+  document.getElementById('moveFirst').addEventListener('click', function(){
+    var first = L.latLng(document.getElementById("latitude1").value, document.getElementById("longitude1").value);
+    if(map.hasLayer(firstPoint)){
+      map.removeLayer(firstPoint);
+    } 
+    firstPoint = L.marker(first).addTo(map).bindPopup(first.lat + ',' + first.lng).openPopup();
+    if(map.hasLayer(secondPoint)){
+      var second = L.latLng(document.getElementById("latitude2").value, document.getElementById("longitude2").value);
+      map.removeLayer(secondPoint);
+      secondPoint = L.marker(second).addTo(map).bindPopup(second.lat + ',' + second.lng).openPopup();
+      if(map.hasLayer(poly)){
+        map.removeLayer(poly);
+      }
+      poly = L.polygon([
+        L.latLng(Math.min(first.lat, second.lat), Math.max(first.lng, second.lng)),
+        L.latLng(Math.max(first.lat, second.lat), Math.max(first.lng, second.lng)),
+        L.latLng(Math.max(first.lat, second.lat), Math.min(first.lng, second.lng)),
+        L.latLng(Math.min(first.lat, second.lat), Math.min(first.lng, second.lng))
+      ]).addTo(map);
+      map.fitBounds(poly.getBounds());
+    }
+  });
+
+  document.getElementById('deleteSecond').addEventListener('click', function(){
+    document.getElementById("latitude2").value=0;
+    document.getElementById("longitude2").value=0;
+    map.removeLayer(secondPoint);
+    map.removeLayer(poly);
+  });
+
+  document.getElementById('moveSecond').addEventListener('click', function(){
+    var second = L.latLng(document.getElementById("latitude2").value, document.getElementById("longitude2").value);
+    if(map.hasLayer(secondPoint)){
+      map.removeLayer(secondPoint);
+    }
+    secondPoint = L.marker(second).addTo(map).bindPopup(second.lat + ',' + second.lng).openPopup();
+    if(map.hasLayer(firstPoint)){
+      var first = L.latLng(document.getElementById("latitude1").value, document.getElementById("longitude1").value);
+      map.removeLayer(firstPoint);
+      firstPoint = L.marker(first).addTo(map).bindPopup(first.lat + ',' + first.lng).openPopup();
+      if(map.hasLayer(poly)){
+        map.removeLayer(poly);
+      }
+
+      poly = L.polygon([
+        L.latLng(Math.min(first.lat, second.lat), Math.max(first.lng, second.lng)),
+        L.latLng(Math.max(first.lat, second.lat), Math.max(first.lng, second.lng)),
+        L.latLng(Math.max(first.lat, second.lat), Math.min(first.lng, second.lng)),
+        L.latLng(Math.min(first.lat, second.lat), Math.min(first.lng, second.lng))
+      ]).addTo(map);
+      map.fitBounds(poly.getBounds());
+    }
+  });
+
+  document.getElementById('Build').addEventListener('click', function(){
+    var first = L.latLng(document.getElementById("latitude1").value, document.getElementById("longitude1").value);
+    var second = L.latLng(document.getElementById("latitude2").value, document.getElementById("longitude2").value);
+
+    if(document.getElementById('noMetrics').checked){
+      const route_url = 'http://localhost:8000/nometrics,' + first.lat + ',' + first.lng + ',' + second.lat + ',' + second.lng;
+      window.location.replace(route_url);
+    } else if(document.getElementById('degree').checked){
+      const route_url = 'http://localhost:8000/degree,' + first.lat + ',' + first.lng + ',' + second.lat + ',' + second.lng;
+      window.location.replace(route_url);
+    } else if(document.getElementById('closeness').checked){
+      const route_url = 'http://localhost:8000/closeness,' + first.lat + ',' + first.lng + ',' + second.lat + ',' + second.lng;
+      window.location.replace(route_url);
+    } else if(document.getElementById('betweenness').checked){
+      const route_url = 'http://localhost:8000/betweenness,' + first.lat + ',' + first.lng + ',' + second.lat + ',' + second.lng;
+      window.location.replace(route_url);
+    } else if(document.getElementById('pagerank').checked){
+      const route_url = 'http://localhost:8000/pagerank,' + first.lat + ',' + first.lng + ',' + second.lat + ',' + second.lng;
+      window.location.replace(route_url);
+    }
+
+  });
+
+</script>
+</body>
+</html>
