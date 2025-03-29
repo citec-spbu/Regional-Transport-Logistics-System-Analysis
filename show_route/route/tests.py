@@ -1,7 +1,7 @@
 import unittest
 from django.test import RequestFactory
 from django.urls import reverse
-from route.views import (
+from .views import (
     showmap,
     showroutes,
     create_graph_city,
@@ -292,6 +292,93 @@ class TestViews(unittest.TestCase):
         request = self.factory.get(reverse('showroute', args=[metrics, lat1, long1, lat2, long2]))
         response = showroutes(request, metrics, lat1, long1, lat2, long2)
         self.assertEqual(response.status_code, 200)
+
+
+class TestAdditionalViews(unittest.TestCase):
+
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    @patch('route.views.os.path.exists')
+    @patch('route.views.pd.read_csv')
+    @patch('route.views.ox.graph_from_gdfs')
+    def test_showroutes_with_existing_files(self, mock_graph_from_gdfs, mock_read_csv, mock_exists):
+        mock_exists.return_value = True
+        mock_read_csv.side_effect = [
+            pd.DataFrame({'osmid': [1], 'y': [55.75], 'x': [37.61], 'geometry': ['POINT (37.61 55.75)']}),
+            pd.DataFrame({'u': [1], 'v': [2], 'key': [0], 'geometry': ['LINESTRING (37.61 55.75, 37.62 55.76)']})
+        ]
+        mock_graph_from_gdfs.return_value = nx.Graph()
+
+        request = self.factory.get(reverse('showroute', args=['degree', '55.75', '37.61', '55.76', '37.62']))
+        response = showroutes(request, 'degree', '55.75', '37.61', '55.76', '37.62')
+        self.assertEqual(response.status_code, 200)
+
+    @patch('route.views.ox.features.features_from_bbox')
+    def test_func_tags_with_empty_dataframe(self, mock_features_from_bbox):
+        mock_features_from_bbox.return_value = pd.DataFrame()
+
+        tags = {'industrial': 'port'}
+        point_y = (55.75, 55.76)
+        point_x = (37.61, 37.62)
+        result_df = func_tags(tags, point_y, point_x)
+
+        self.assertIsNone(result_df)
+
+    @patch('route.views.ox.graph_from_bbox')
+    def test_create_graph_city_with_empty_graph(self, mock_graph_from_bbox):
+        mock_graph_from_bbox.return_value = nx.Graph()
+
+        point_y = (55.75, 55.76)
+        point_x = (37.61, 37.62)
+        full_df, G, lat, lon = create_graph_city(point_y, point_x)
+
+        self.assertTrue(G.number_of_nodes() == 0)
+
+    def test_create_features_city_with_empty_coordinates(self):
+        empty_df = pd.DataFrame()
+        G = nx.Graph()
+        lat = []
+        lon = []
+
+        features_df = create_features_city(empty_df, G, lat, lon)
+
+        self.assertTrue(features_df.empty)
+
+    @patch('route.views.ox.distance.nearest_nodes')
+    def test_create_features_city_with_invalid_nodes(self, mock_nearest_nodes):
+        mock_nearest_nodes.return_value = None
+
+        df = pd.DataFrame({'lat': [55.75], 'lon': [37.61]})
+        G = nx.Graph()
+        lat = [55.75]
+        lon = [37.61]
+
+        features_df = create_features_city(df, G, lat, lon)
+
+        self.assertTrue(features_df['new_nodes'].isnull().all())
+
+    @patch('route.views.nx.shortest_path')
+    def test_create_graph_route_with_no_path(self, mock_shortest_path):
+        mock_shortest_path.side_effect = nx.NetworkXNoPath
+
+        G = nx.Graph()
+        feature_df = pd.DataFrame({'new_nodes': [1, 2]})
+
+        route_df = create_graph_route(G, feature_df)
+
+        self.assertTrue(route_df.empty)
+
+    @patch('route.views.nx.compose_all')
+    @patch('route.views.ox.graph_to_gdfs')
+    def test_showroutes_with_graph_composition_error(self, mock_graph_to_gdfs, mock_compose_all):
+        mock_compose_all.side_effect = nx.NetworkXError
+        mock_graph_to_gdfs.return_value = (pd.DataFrame(), pd.DataFrame())
+
+        request = self.factory.get(reverse('showroute', args=['degree', '55.75', '37.61', '55.76', '37.62']))
+        with self.assertRaises(nx.NetworkXError):
+            showroutes(request, 'degree', '55.75', '37.61', '55.76', '37.62')
+
 
 if __name__ == '__main__':
     unittest.main()
